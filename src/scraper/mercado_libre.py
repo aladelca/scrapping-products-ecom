@@ -1,37 +1,24 @@
-"""Module for scraping product data from e-commerce websites using Selenium."""
+"""MercadoLibre scraper implementation."""
 
 import time
 from typing import Dict, List, Optional
 
-import pandas as pd
 from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
     TimeoutException,
     WebDriverException,
 )
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from ..utils.constants import XPATH_MAPPINGS
+from .base import BaseScraper
 
-class ProductScraper:
-    """A class to handle product data scraping from e-commerce websites."""
 
-    def __init__(self, headless: bool = False):
-        """
-        Initialize the ProductScraper.
-
-        Args:
-            headless (bool): Whether to run the browser in headless mode.
-        """
-        self.options = Options()
-        if headless:
-            self.options.add_argument("--headless")
-        self.options.add_argument("--no-sandbox")
-        self.options.add_argument("--disable-dev-shm-usage")
-        self.driver = None
+class MercadoLibreScraper(BaseScraper):
+    """Scraper for MercadoLibre website."""
 
     def setup_driver(self) -> None:
         """Set up the Chrome WebDriver with appropriate options."""
@@ -50,11 +37,11 @@ class ProductScraper:
         Wait for an element to be present on the page.
 
         Args:
-            xpath (str): The XPath of the element to wait for.
-            timeout (int): Maximum time to wait in seconds.
+            xpath (str): The XPath of the element to wait for
+            timeout (int): Maximum time to wait in seconds
 
         Returns:
-            Optional[WebElement]: The found element or None if not found.
+            Optional[WebElement]: The found element or None if not found
         """
         try:
             wait = WebDriverWait(self.driver, timeout)
@@ -70,10 +57,10 @@ class ProductScraper:
         Safely get text from a WebElement.
 
         Args:
-            element (WebElement): The WebElement to get text from.
+            element (WebElement): The WebElement to get text from
 
         Returns:
-            Optional[str]: The text content or None if not available.
+            Optional[str]: The text content or None if not available
         """
         try:
             return element.text.strip()
@@ -89,16 +76,16 @@ class ProductScraper:
         Scrape product data from the given webpage.
 
         Args:
-            webpage (str): The URL of the webpage to scrape.
+            webpage (str): The URL of the webpage to scrape
+            num_pages (int): Number of pages to scrape
 
         Returns:
             Dict[str, List[Optional[str]]]: Dictionary containing lists of
-            scraped data. If no products are found, returns empty lists for all
-            fields.
+            scraped data
 
         Raises:
             RuntimeError: If WebDriver initialization fails or webpage access
-            fails.
+            fails
         """
         data = {
             "description": [],
@@ -113,15 +100,15 @@ class ProductScraper:
             time.sleep(5)  # Initial wait for dynamic content
 
             # Wait for product list to load
-            if not self.wait_for_element("//section/ol/li"):
-                return data  # Return empty lists if no products found
+            if not self.wait_for_element(XPATH_MAPPINGS["product_list"]):
+                return data
 
             for i in range(1, 52):
                 # Scrape description
                 try:
                     description = self.driver.find_element(
                         By.XPATH,
-                        f"//section/ol/li[{i}]/div/div/div[2]/h3",
+                        XPATH_MAPPINGS["description"].format(i),
                     )
                     data["description"].append(self.get_text_safe(description))
                 except NoSuchElementException:
@@ -129,16 +116,13 @@ class ProductScraper:
 
                 # Scrape brand
                 try:
-                    brand_xpaths = [
-                        f"//section/ol/li[{i}]/div/div/div[2]/span[1]",
-                        f"//section/ol/li[{i}]/div/div/div[2]/span",
-                        f"//section/ol/li[{i}]/div/div/div[2]/span[2]",
-                    ]
-
                     brand = None
-                    for xpath in brand_xpaths:
+                    for xpath in XPATH_MAPPINGS["brand_options"]:
                         try:
-                            element = self.driver.find_element(By.XPATH, xpath)
+                            element = self.driver.find_element(
+                                By.XPATH,
+                                xpath.format(i),
+                            )
                             if "poly-component__brand" in element.get_attribute(
                                 "class"
                             ):
@@ -155,7 +139,7 @@ class ProductScraper:
                 try:
                     original_price = self.driver.find_element(
                         By.XPATH,
-                        f"//section/ol/li[{i}]/div/div/div[2]/div[2]/s",
+                        XPATH_MAPPINGS["original_price"].format(i),
                     )
                     if "previous" in original_price.get_attribute("class"):
                         data["original_price"].append(
@@ -168,15 +152,13 @@ class ProductScraper:
 
                 # Scrape offer price
                 try:
-                    offer_price_xpaths = [
-                        (f"//section/ol/li[{i}]/div/div/div[2]" "/div[2]/div/span[1]"),
-                        (f"//section/ol/li[{i}]/div/div/div[2]" "/div[3]/div/span[1]"),
-                    ]
-
                     offer_price = None
-                    for xpath in offer_price_xpaths:
+                    for xpath in XPATH_MAPPINGS["offer_price_options"]:
                         try:
-                            element = self.driver.find_element(By.XPATH, xpath)
+                            element = self.driver.find_element(
+                                By.XPATH,
+                                xpath.format(i),
+                            )
                             if "andes-money-amount" in element.get_attribute("class"):
                                 offer_price = element
                                 break
@@ -196,84 +178,3 @@ class ProductScraper:
                 self.driver.quit()
 
         return data
-
-
-def scrape_products(
-    webpage: str, headless: bool = False
-) -> Dict[str, List[Optional[str]]]:
-    """
-    Scrape product data from a webpage.
-
-    Args:
-        webpage (str): The URL of the webpage to scrape.
-        headless (bool): Whether to run the browser in headless mode.
-
-    Returns:
-        Dict[str, List[Optional[str]]]: Dictionary containing lists of scraped
-        data.
-    """
-    scraper = ProductScraper(headless=headless)
-    return scraper.scrape_product_data(webpage)
-
-
-def clean_price(price: str) -> float:
-    """
-    Clean price string to get numerical value.
-
-    Args:
-        price (str): Price string to clean.
-
-    Returns:
-        float: Cleaned price value.
-    """
-    if not price or pd.isna(price):
-        return None
-
-    # Remove currency symbol and whitespace
-    price = price.replace("S/", "").strip()
-
-    # Split by comma if exists and join with decimal point
-    if "," in price:
-        parts = price.split(",")
-        price = f"{parts[0].strip()}.{parts[1].strip()}"
-
-    # Remove any remaining non-numeric characters except decimal point
-    price = "".join(char for char in price if char.isdigit() or char == ".")
-
-    try:
-        return float(price)
-    except (ValueError, TypeError):
-        return None
-
-
-def scrape_range(
-    root_page: str,
-    initial_page: int,
-    final_page: int,
-) -> pd.DataFrame:
-    """
-    Scrape product data from a webpage iterating over a range.
-
-    Args:
-        root_page (str): The URL base of the webpage.
-        initial_page (int): Starting page number.
-        final_page (int): Ending page number.
-
-    Returns:
-        pd.DataFrame: DataFrame containing the scraped data with cleaned prices.
-    """
-    data_list = []
-    for i in range(initial_page, final_page + 1):
-        data = scrape_products(f"{root_page}/{i}")
-        data_list.append(data)
-
-    df_final = pd.DataFrame()
-    for i in data_list:
-        df = pd.DataFrame(i)
-        df_final = pd.concat([df_final, df])
-
-    # Clean price columns
-    df_final["offer_price"] = df_final["offer_price"].apply(clean_price)
-    df_final["original_price"] = df_final["original_price"].apply(clean_price)
-
-    return df_final
