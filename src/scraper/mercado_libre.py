@@ -13,8 +13,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from ..utils.constants import XPATH_MAPPINGS
-from .base import BaseScraper
+from src.scraper.base import BaseScraper
+from src.utils.constants import XPATH_MAPPINGS
 
 
 class MercadoLibreScraper(BaseScraper):

@@ -21,6 +21,7 @@ class DataCleaner:
         """
         Filter null values from a column.
         """
+        print(self.df[self.df[column].notna()].shape)
         return self.df[self.df[column].notna()]
 
     def clean_price(self, price: str) -> Optional[float]:
@@ -78,6 +79,7 @@ class DataCleaner:
         for column in price_columns:
             if column in self.df.columns:
                 self.df[column] = self.df[column].apply(self.clean_price)
+        print(self.df.head())
         self.df = self._filter_null("offer_price")
 
         return self

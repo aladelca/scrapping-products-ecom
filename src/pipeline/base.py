@@ -1,7 +1,9 @@
 """Base pipeline module."""
 
+import logging
+import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, List
 
 
 class PipelineStep(ABC):
@@ -27,6 +29,7 @@ class Pipeline:
     def __init__(self):
         """Initialize the pipeline."""
         self.steps = []
+        logging.info("Created new Pipeline instance")
 
     def add_step(self, step: PipelineStep) -> "Pipeline":
         """
@@ -38,6 +41,8 @@ class Pipeline:
         Returns:
             Pipeline: Self for method chaining
         """
+        step_name = step.__class__.__name__
+        logging.info(f"Adding step to pipeline: {step_name}")
         self.steps.append(step)
         return self
 
@@ -51,7 +56,38 @@ class Pipeline:
         Returns:
             Processed data
         """
+        if not self.steps:
+            logging.warning("Executing pipeline with no steps defined")
+            return initial_data
+
+        total_steps = len(self.steps)
+        logging.info(f"Executing pipeline with {total_steps} steps")
+        pipeline_start_time = time.time()
+
         data = initial_data
-        for step in self.steps:
-            data = step.execute(data)
+
+        for i, step in enumerate(self.steps):
+            step_name = step.__class__.__name__
+            step_number = i + 1
+
+            logging.info(f"Running step {step_number}/{total_steps}: {step_name}")
+            step_start_time = time.time()
+
+            try:
+                data = step.execute(data)
+                step_elapsed_time = time.time() - step_start_time
+                logging.info(
+                    f"Step {step_number}/{total_steps}: {step_name} completed in {step_elapsed_time:.2f} seconds"
+                )
+            except Exception as e:
+                logging.error(
+                    f"Error in step {step_number}/{total_steps}: {step_name} - {str(e)}"
+                )
+                raise
+
+        pipeline_elapsed_time = time.time() - pipeline_start_time
+        logging.info(
+            f"Pipeline execution completed in {pipeline_elapsed_time:.2f} seconds"
+        )
+
         return data

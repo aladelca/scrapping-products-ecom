@@ -2,8 +2,8 @@
 
 import pandas as pd
 
-from ...scraper.mercado_libre import MercadoLibreScraper
-from ..base import PipelineStep
+from src.pipeline.base import PipelineStep
+from src.scraper.mercado_libre import MercadoLibreScraper
 
 
 class ScrapingStep(PipelineStep):

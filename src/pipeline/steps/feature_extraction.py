@@ -2,9 +2,8 @@
 
 import pandas as pd
 
-from data_processing.text_processor import FeatureExtractor
-
-from ..base import PipelineStep
+from src.data_processing.text_processor import FeatureExtractor
+from src.pipeline.base import PipelineStep
 
 
 class FeatureExtractionStep(PipelineStep):
