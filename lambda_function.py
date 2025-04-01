@@ -23,8 +23,8 @@ logger.setLevel(logging.INFO)
 sys.path.append(os.getcwd())
 
 # Initialize global variables for NLP tools
-nltk_available = True
-spacy_available = True
+nltk_available = False
+spacy_available = False
 nlp = None
 
 # Try to import and setup NLTK
@@ -32,46 +32,54 @@ try:
     import nltk
 
     # Download NLTK resources to /tmp which is writable in Lambda
-    nltk_data_dir = "/tmp/nltk_data"
+    nltk_data_dir = os.environ.get("NLTK_DATA", "/tmp/nltk_data")
     os.makedirs(nltk_data_dir, exist_ok=True)
     nltk.data.path.append(nltk_data_dir)
 
-    # Download necessary NLTK data during cold start
+    # Check if NLTK data is available
     try:
-        logger.info("Downloading NLTK resources...")
-        nltk.download("punkt", download_dir=nltk_data_dir)
-        nltk.download("stopwords", download_dir=nltk_data_dir)
-        nltk.download("wordnet", download_dir=nltk_data_dir)
-        logger.info("NLTK resources downloaded successfully")
-    except Exception as e:
-        logger.warning(f"Error downloading NLTK resources: {str(e)}")
-        logger.warning(traceback.format_exc())
+        nltk.data.find("tokenizers/punkt")
+        nltk.data.find("corpora/stopwords")
+        nltk.data.find("corpora/wordnet")
+        nltk_available = True
+        logger.info("NLTK data is available")
+    except LookupError:
+        # Attempt to download only if not already available
+        try:
+            logger.info("Downloading NLTK resources...")
+            nltk.download("punkt", download_dir=nltk_data_dir, quiet=True)
+            nltk.download("stopwords", download_dir=nltk_data_dir, quiet=True)
+            nltk.download("wordnet", download_dir=nltk_data_dir, quiet=True)
+            nltk_available = True
+            logger.info("NLTK resources downloaded successfully")
+        except Exception as e:
+            logger.warning(f"Error downloading NLTK resources: {str(e)}")
+            logger.warning(traceback.format_exc())
 except ImportError:
     logger.warning("NLTK is not available, continuing without it")
-    nltk_available = False
 
-# Try to import and setup spaCy
+# Try to import and setup spaCy with proper error handling
 try:
     import spacy
 
-    # Load spaCy model
+    # Try to load spaCy model with better error handling
     try:
         logger.info("Loading spaCy model...")
         nlp = spacy.load("es_core_news_sm")
-        logger.info(
-            f"spaCy model loaded successfully: {nlp.meta['name'] if nlp else 'None'}"
-        )
+        spacy_available = True
+        logger.info(f"spaCy model loaded successfully: {nlp.meta['name']}")
     except Exception as e:
         logger.warning(f"Error loading spaCy model: {str(e)}")
-        logger.warning(traceback.format_exc())
-        spacy_available = False
-except ImportError:
-    logger.warning("spaCy is not available, continuing without it")
-    spacy_available = False
+        logger.warning("Will continue without spaCy model")
+except ImportError as e:
+    logger.warning(f"spaCy is not available: {str(e)}, continuing without it")
 
-# Import after NLTK and spaCy setup
+# Import price predictor model
 try:
+    logger.info("Importing CatBoostPricePredictor...")
     from src.models.price_predictor import CatBoostPricePredictor
+
+    logger.info("Successfully imported CatBoostPricePredictor")
 except ImportError as e:
     logger.error(f"Failed to import CatBoostPricePredictor: {e}")
     logger.error(traceback.format_exc())
