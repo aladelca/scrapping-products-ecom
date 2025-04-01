@@ -12,9 +12,7 @@ import traceback
 
 import boto3
 import joblib
-import nltk
 import pandas as pd
-import spacy
 from botocore.exceptions import ClientError
 
 # Configure logging
@@ -24,33 +22,60 @@ logger.setLevel(logging.INFO)
 # Add model path to system path if needed
 sys.path.append(os.getcwd())
 
-# Download NLTK resources to /tmp which is writable in Lambda
-nltk_data_dir = "/tmp/nltk_data"
-os.makedirs(nltk_data_dir, exist_ok=True)
-nltk.data.path.append(nltk_data_dir)
+# Initialize global variables for NLP tools
+nltk_available = True
+spacy_available = True
+nlp = None
 
-# Download necessary NLTK data during cold start
+# Try to import and setup NLTK
 try:
-    logger.info("Downloading NLTK resources...")
-    nltk.download("punkt", download_dir=nltk_data_dir)
-    nltk.download("stopwords", download_dir=nltk_data_dir)
-    nltk.download("wordnet", download_dir=nltk_data_dir)
-    logger.info("NLTK resources downloaded successfully")
-except Exception as e:
-    logger.error(f"Error downloading NLTK resources: {str(e)}")
-    logger.error(traceback.format_exc())
+    import nltk
 
-# Load spaCy model
+    # Download NLTK resources to /tmp which is writable in Lambda
+    nltk_data_dir = "/tmp/nltk_data"
+    os.makedirs(nltk_data_dir, exist_ok=True)
+    nltk.data.path.append(nltk_data_dir)
+
+    # Download necessary NLTK data during cold start
+    try:
+        logger.info("Downloading NLTK resources...")
+        nltk.download("punkt", download_dir=nltk_data_dir)
+        nltk.download("stopwords", download_dir=nltk_data_dir)
+        nltk.download("wordnet", download_dir=nltk_data_dir)
+        logger.info("NLTK resources downloaded successfully")
+    except Exception as e:
+        logger.warning(f"Error downloading NLTK resources: {str(e)}")
+        logger.warning(traceback.format_exc())
+except ImportError:
+    logger.warning("NLTK is not available, continuing without it")
+    nltk_available = False
+
+# Try to import and setup spaCy
 try:
-    logger.info("Loading spaCy model...")
-    nlp = spacy.load("es_core_news_sm")
-    logger.info("spaCy model loaded successfully")
-except Exception as e:
-    logger.error(f"Error loading spaCy model: {str(e)}")
-    logger.error(traceback.format_exc())
+    import spacy
+
+    # Load spaCy model
+    try:
+        logger.info("Loading spaCy model...")
+        nlp = spacy.load("es_core_news_sm")
+        logger.info(
+            f"spaCy model loaded successfully: {nlp.meta['name'] if nlp else 'None'}"
+        )
+    except Exception as e:
+        logger.warning(f"Error loading spaCy model: {str(e)}")
+        logger.warning(traceback.format_exc())
+        spacy_available = False
+except ImportError:
+    logger.warning("spaCy is not available, continuing without it")
+    spacy_available = False
 
 # Import after NLTK and spaCy setup
-from src.models.price_predictor import CatBoostPricePredictor
+try:
+    from src.models.price_predictor import CatBoostPricePredictor
+except ImportError as e:
+    logger.error(f"Failed to import CatBoostPricePredictor: {e}")
+    logger.error(traceback.format_exc())
+    raise
 
 # Initialize S3 client
 s3 = boto3.client("s3")

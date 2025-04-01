@@ -13,8 +13,8 @@ RUN python -m nltk.downloader -d /tmp/nltk_data punkt stopwords wordnet
 # Copy the NLTK data to a location that will be included in the image
 RUN cp -r /tmp/nltk_data ${LAMBDA_TASK_ROOT}/nltk_data
 
-# Verify spaCy model installation with error handling
-RUN python -c "import sys; import spacy; print('spaCy version:', spacy.__version__); try: nlp = spacy.load('es_core_news_sm'); print('Model loaded successfully:', nlp.meta['name']); except Exception as e: print('Error loading model:', e, file=sys.stderr); sys.exit(1)"
+# Verify spaCy model installation with error handling - using a script file
+RUN echo 'import sys\nimport spacy\nprint("spaCy version:", spacy.__version__)\ntry:\n    nlp = spacy.load("es_core_news_sm")\n    print("Model loaded successfully:", nlp.meta["name"])\nexcept Exception as e:\n    print("Error loading model:", e, file=sys.stderr)\n    sys.exit(1)' > /tmp/verify_spacy.py && python /tmp/verify_spacy.py
 
 # Verify what was installed
 RUN pip list
