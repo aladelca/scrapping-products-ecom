@@ -19,9 +19,5 @@ COPY src ${LAMBDA_TASK_ROOT}/src/
 ENV NLTK_DATA=${LAMBDA_TASK_ROOT}/nltk_data
 ENV PYTHONPATH=${LAMBDA_TASK_ROOT}
 
-# Set permissions
-RUN chmod 644 ${LAMBDA_TASK_ROOT}/lambda_function.py
-RUN find ${LAMBDA_TASK_ROOT}/src -type f -name "*.py" -exec chmod 644 {} \;
-
 # Set the handler (Lambda entry point)
 CMD [ "lambda_function.lambda_handler" ]
