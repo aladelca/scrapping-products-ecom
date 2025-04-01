@@ -1,8 +1,14 @@
 FROM public.ecr.aws/lambda/python:3.9
 
+# Print Python version for debugging
+RUN python --version && pip --version
+
 # Copy requirements and install dependencies
-COPY requirements.txt ${LAMBDA_TASK_ROOT}/
-RUN pip install -r ${LAMBDA_TASK_ROOT}/requirements.txt
+COPY requirements-lambda.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements-lambda.txt
+
+# Verify what was installed
+RUN pip list
 
 # Copy function code and src directory
 COPY lambda_function.py ${LAMBDA_TASK_ROOT}/

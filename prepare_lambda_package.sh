@@ -7,7 +7,7 @@ mkdir -p lambda_package
 
 # Instalar dependencias en el directorio
 echo "Instalando dependencias..."
-pip install -r requirements.txt --target ./lambda_package
+pip install -r requirements-lambda.txt --target ./lambda_package
 
 # Copiar archivos del proyecto
 echo "Copiando archivos del proyecto..."
