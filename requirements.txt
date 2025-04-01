@@ -170,3 +170,5 @@ fastapi>=0.104.0
 uvicorn>=0.23.0
 pydantic>=2.4.2
 python-multipart>=0.0.6
+# AWS Lambda dependencies
+boto3==1.26.0

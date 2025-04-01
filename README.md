@@ -513,3 +513,108 @@ Students are encouraged to:
 ## License
 
 This project is part of the Python course curriculum at Cibertec Peru and is licensed under the MIT license.
+
+## AWS Lambda Deployment
+
+You can deploy the price prediction model as an AWS Lambda function that accepts a JSON payload with a product description and returns the predicted price.
+
+### Deployment Steps
+
+1. **Prepare your deployment package**:
+   ```bash
+   # Make the script executable
+   chmod +x prepare_lambda_package.sh
+
+   # Run the packaging script
+   ./prepare_lambda_package.sh
+   ```
+
+2. **Upload your model files to S3**:
+   ```bash
+   # Create an S3 bucket (if you don't have one already)
+   aws s3 mb s3://your-model-bucket-name
+
+   # Upload your model files
+   aws s3 cp trained_models/price_model.pkl s3://your-model-bucket-name/models/price_model.pkl
+   aws s3 cp trained_models/vectorizer.pkl s3://your-model-bucket-name/models/vectorizer.pkl
+   ```
+
+3. **Create an IAM role** for your Lambda function with the following permissions:
+   - `AWSLambdaBasicExecutionRole` (for CloudWatch logs)
+   - S3 read access to your model bucket
+
+4. **Create the Lambda function**:
+   - In the AWS Console, go to Lambda → Create function
+   - Choose "Author from scratch"
+   - Name: `price-predictor-lambda`
+   - Runtime: Python 3.9 (or higher)
+   - Architecture: x86_64
+   - Permissions: Use the IAM role created above
+   - Upload the `lambda_deployment_package.zip` file
+   - Set the handler to: `lambda_function.lambda_handler`
+
+5. **Configure environment variables** in the Lambda function:
+   - `MODEL_BUCKET`: Your S3 bucket name (e.g., `your-model-bucket-name`)
+   - `MODEL_KEY`: Path to your model in the bucket (e.g., `models/price_model.pkl`)
+   - `VECTORIZER_KEY`: Path to your vectorizer in the bucket (e.g., `models/vectorizer.pkl`)
+
+6. **Increase timeout and memory**:
+   - Timeout: 30 seconds (the model may take time to load)
+   - Memory: 512 MB or higher (depending on your model size)
+
+7. **Create an API Gateway** to expose your Lambda function:
+   - In the AWS Console, go to API Gateway → Create API
+   - Choose "REST API" → Build
+   - Name: `price-predictor-api`
+   - Create a resource `/predict` and add a POST method
+   - Integration type: Lambda Function
+   - Lambda Function: `price-predictor-lambda`
+   - Deploy the API to a stage (e.g., "prod")
+
+### Using the Lambda API
+
+Once deployed, you can make predictions using your API:
+
+```bash
+# Using curl
+curl -X POST \
+  https://your-api-id.execute-api.your-region.amazonaws.com/prod/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"product_description": "Samsung Galaxy A54 128GB 8GB RAM 5G Black Smartphone"}'
+```
+
+```python
+# Using Python requests
+import requests
+import json
+
+url = "https://your-api-id.execute-api.your-region.amazonaws.com/prod/predict"
+payload = {"product_description": "Samsung Galaxy A54 128GB 8GB RAM 5G Black Smartphone"}
+headers = {"Content-Type": "application/json"}
+
+response = requests.post(url, data=json.dumps(payload), headers=headers)
+result = response.json()
+print(f"Predicted price: {result['predicted_price']}")
+```
+
+The response will be in this format:
+
+```json
+{
+  "product_description": "Samsung Galaxy A54 128GB 8GB RAM 5G Black Smartphone",
+  "predicted_price": 349.99
+}
+```
+
+### Monitoring and Troubleshooting
+
+- Check CloudWatch Logs for detailed Lambda execution logs
+- Monitor Lambda metrics (invocations, errors, duration)
+- Use AWS X-Ray for in-depth tracing (optional)
+
+### Cost Optimization
+
+- The Lambda function is configured to cache the model in memory between invocations
+- Cold starts may be slower due to model loading from S3
+- Consider using Provisioned Concurrency for consistent performance
+- Use AWS Lambda Power Tuning to find the optimal memory configuration

@@ -1,0 +1,61 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1 # Cambiar a tu región de AWS
+  ECR_REPOSITORY: product_description
+  LAMBDA_FUNCTION_NAME: predict_description
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Construir la imagen de Docker
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+        # Subir la imagen a ECR
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+        # Guardar el URI de la imagen para usarlo en el paso siguiente
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+    - name: Update Lambda Function
+      run: |
+        # Actualizar la función Lambda para usar la nueva imagen
+        aws lambda update-function-code \
+          --function-name $LAMBDA_FUNCTION_NAME \
+          --image-uri ${{ steps.build-image.outputs.image }}
+
+    - name: Wait for function update
+      run: |
+        # Esperar a que la función Lambda se actualice
+        aws lambda wait function-updated \
+          --function-name $LAMBDA_FUNCTION_NAME
