@@ -12,7 +12,9 @@ import traceback
 
 import boto3
 import joblib
+import nltk
 import pandas as pd
+import spacy
 from botocore.exceptions import ClientError
 
 # Configure logging
@@ -22,7 +24,32 @@ logger.setLevel(logging.INFO)
 # Add model path to system path if needed
 sys.path.append(os.getcwd())
 
-# Import after path configuration
+# Download NLTK resources to /tmp which is writable in Lambda
+nltk_data_dir = "/tmp/nltk_data"
+os.makedirs(nltk_data_dir, exist_ok=True)
+nltk.data.path.append(nltk_data_dir)
+
+# Download necessary NLTK data during cold start
+try:
+    logger.info("Downloading NLTK resources...")
+    nltk.download("punkt", download_dir=nltk_data_dir)
+    nltk.download("stopwords", download_dir=nltk_data_dir)
+    nltk.download("wordnet", download_dir=nltk_data_dir)
+    logger.info("NLTK resources downloaded successfully")
+except Exception as e:
+    logger.error(f"Error downloading NLTK resources: {str(e)}")
+    logger.error(traceback.format_exc())
+
+# Load spaCy model
+try:
+    logger.info("Loading spaCy model...")
+    nlp = spacy.load("es_core_news_sm")
+    logger.info("spaCy model loaded successfully")
+except Exception as e:
+    logger.error(f"Error loading spaCy model: {str(e)}")
+    logger.error(traceback.format_exc())
+
+# Import after NLTK and spaCy setup
 from src.models.price_predictor import CatBoostPricePredictor
 
 # Initialize S3 client

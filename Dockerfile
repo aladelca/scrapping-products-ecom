@@ -7,12 +7,25 @@ RUN python --version && pip --version
 COPY requirements-lambda.txt ${LAMBDA_TASK_ROOT}/
 RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements-lambda.txt
 
+# Pre-download NLTK data
+RUN mkdir -p /tmp/nltk_data
+RUN python -m nltk.downloader -d /tmp/nltk_data punkt stopwords wordnet
+# Copy the NLTK data to a location that will be included in the image
+RUN cp -r /tmp/nltk_data ${LAMBDA_TASK_ROOT}/nltk_data
+
+# Verify spaCy model installation
+RUN python -c "import spacy; nlp = spacy.load('es_core_news_sm'); print(f'Loaded spaCy model: {nlp.meta}');"
+
 # Verify what was installed
 RUN pip list
 
 # Copy function code and src directory
 COPY lambda_function.py ${LAMBDA_TASK_ROOT}/
 COPY src ${LAMBDA_TASK_ROOT}/src/
+
+# Set environment variables for NLTK and spaCy
+ENV NLTK_DATA=${LAMBDA_TASK_ROOT}/nltk_data
+ENV PYTHONPATH=${LAMBDA_TASK_ROOT}
 
 # Set permissions
 RUN chmod 644 ${LAMBDA_TASK_ROOT}/lambda_function.py
