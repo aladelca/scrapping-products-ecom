@@ -103,7 +103,7 @@ def download_from_s3(bucket, key, local_path):
     """Download a file from S3.
 
     Args:
-        bucket (str): S3 bucket name
+        bucket (str): S3 bucket name in AWS
         key (str): S3 object key
         local_path (str): Local path to save the file
 
