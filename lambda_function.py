@@ -102,56 +102,56 @@ s3 = boto3.client("s3")
 MODEL_BUCKET = os.environ.get("MODEL_BUCKET", "webscrapper-cibertec")
 MODEL_KEY = os.environ.get("MODEL_KEY", "models/price_model.pkl")
 VECTORIZER_KEY = os.environ.get("VECTORIZER_KEY", "models/vectorizer.pkl")
-LOCAL_MODEL_PATH = "/tmp/price_model.pkl"
-LOCAL_VECTORIZER_PATH = "/tmp/vectorizer.pkl"
 
-# Global variable to store the model once loaded
+# Global variables to store the model and vectorizer objects
 model = None
+vectorizer = None
 
 
-def download_from_s3(bucket, key, local_path):
-    """Download a file from S3.
+def get_from_s3(bucket, key):
+    """Get an object from S3 and return its contents in memory.
 
     Args:
         bucket (str): S3 bucket name in AWS
         key (str): S3 object key
-        local_path (str): Local path to save the file
 
     Returns:
-        bool: True if download was successful, False otherwise
+        bytes: Object contents if successful, None otherwise
     """
     try:
-        logger.info(f"Downloading {key} from {bucket} to {local_path}")
-        s3.download_file(bucket, key, local_path)
-        return True
+        logger.info(f"Getting {key} from {bucket}")
+        response = s3.get_object(Bucket=bucket, Key=key)
+        return response["Body"].read()
     except ClientError as e:
-        logger.error(f"Failed to download {key}: {e}")
-        return False
+        logger.error(f"Failed to get {key}: {e}")
+        return None
 
 
 def load_model():
-    """Load the price prediction model.
+    """Load the price prediction model directly from S3 into memory.
 
     Returns:
         CatBoostPricePredictor: Loaded model or None if loading failed
     """
-    global model
+    global model, vectorizer
 
     # Return existing model if already loaded
     if model is not None:
         return model
 
     try:
-        # Download model and vectorizer from S3
-        if not download_from_s3(MODEL_BUCKET, MODEL_KEY, LOCAL_MODEL_PATH):
+        # Get model from S3
+        logger.info("Loading model from S3")
+        model_data = get_from_s3(MODEL_BUCKET, MODEL_KEY)
+        if model_data is None:
+            logger.error("Failed to download model from S3")
             return None
 
-        if not download_from_s3(MODEL_BUCKET, VECTORIZER_KEY, LOCAL_VECTORIZER_PATH):
-            logger.warning("Vectorizer not found. Continuing with model only.")
+        # Load the model from memory
+        import io
 
-        # Load the model
-        logger.info(f"Loading model from {LOCAL_MODEL_PATH}")
-        model = joblib.load(LOCAL_MODEL_PATH)
+        model = joblib.load(io.BytesIO(model_data))
+        logger.info("Model loaded into memory successfully")
 
         # Ensure it's a CatBoostPricePredictor instance
         if not isinstance(model, CatBoostPricePredictor):
@@ -162,12 +162,19 @@ def load_model():
         if not hasattr(model, "is_trained") or not model.is_trained:
             model.is_trained = True
 
-        # Load vectorizer for backward compatibility
-        if os.path.exists(LOCAL_VECTORIZER_PATH):
-            vectorizer = joblib.load(LOCAL_VECTORIZER_PATH)
-            model.set_vectorizer(vectorizer)
+        # Get vectorizer for backward compatibility
+        try:
+            vectorizer_data = get_from_s3(MODEL_BUCKET, VECTORIZER_KEY)
+            if vectorizer_data is not None:
+                vectorizer = joblib.load(io.BytesIO(vectorizer_data))
+                model.set_vectorizer(vectorizer)
+                logger.info("Vectorizer loaded into memory successfully")
+            else:
+                logger.warning("Vectorizer not found. Continuing with model only.")
+        except Exception as e:
+            logger.warning(f"Error loading vectorizer: {str(e)}")
+            logger.warning("Continuing without vectorizer")
 
-        logger.info("Model loaded successfully")
         return model
 
     except Exception as e:
