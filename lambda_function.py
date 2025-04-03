@@ -89,7 +89,7 @@ except ImportError as e:
 s3 = boto3.client("s3")
 
 # Constants
-MODEL_BUCKET = os.environ.get("MODEL_BUCKET", "your-model-bucket-name")
+MODEL_BUCKET = os.environ.get("MODEL_BUCKET", "webscrapper-cibertec")
 MODEL_KEY = os.environ.get("MODEL_KEY", "models/price_model.pkl")
 VECTORIZER_KEY = os.environ.get("VECTORIZER_KEY", "models/vectorizer.pkl")
 LOCAL_MODEL_PATH = "/tmp/price_model.pkl"
