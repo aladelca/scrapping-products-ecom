@@ -15,6 +15,8 @@ import joblib
 import pandas as pd
 from botocore.exceptions import ClientError
 
+from src.models.price_predictor import CatBoostPricePredictor
+
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -31,10 +33,18 @@ nlp = None
 try:
     import nltk
 
-    # Download NLTK resources to /tmp which is writable in Lambda
-    nltk_data_dir = os.environ.get("NLTK_DATA", "/tmp/nltk_data")
+    # Force using /tmp for NLTK data (Lambda's writable directory)
+    nltk_data_dir = "/tmp/nltk_data"
     os.makedirs(nltk_data_dir, exist_ok=True)
-    nltk.data.path.append(nltk_data_dir)
+
+    # Clear any existing paths and add only the temp directory
+    nltk.data.path = [nltk_data_dir]
+
+    # Set environment variable explicitly
+    os.environ["NLTK_DATA"] = nltk_data_dir
+
+    logger.info(f"NLTK data directory set to: {nltk_data_dir}")
+    logger.info(f"NLTK data paths: {nltk.data.path}")
 
     # Check if NLTK data is available
     try:
