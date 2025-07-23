@@ -4,7 +4,7 @@ This project is part of a Python course at Cibertec Peru, where we explore web s
 
 ## Course Context
 
-This project is developed as part of the Python programming course at Cibertec Peru, where students learn about:
+This project is developed as part of the Python programming course at Cibertec Peru, where students learnt about:
 - Web scraping with Selenium
 - Data processing and analysis
 - Machine learning fundamentals
